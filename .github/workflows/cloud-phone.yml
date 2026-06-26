@@ -27,7 +27,8 @@ jobs:
       run: |
         curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
         echo "deb https://ngrok-agent.s3.amazonaws.com/ buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt-get update && sudo apt-get install -y ngrok novnc websockify VNC-server
+        sudo apt-get update
+        sudo apt-get install -y ngrok novnc websockify tigervnc-standalone-server
 
     - name: Authenticate Ngrok
       env:
@@ -45,7 +46,7 @@ jobs:
         ngrok http 6080 --log=stdout > /dev/null &
         sleep 15
         echo "============================================="
-        echo "👉 আপনার ক্লাউড ফোনের লিংকটি নিচে দেওয়া হলো:"
+        echo "👉 আপনার ক্লাউড জনের লিংকটি নিচে দেওয়া হলো:"
         curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
         echo "============================================="
         sleep 20000
