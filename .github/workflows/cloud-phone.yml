@@ -30,13 +30,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ngrok novnc websockify tigervnc-standalone-server
 
-    - name: Authenticate & Clear Old Sessions
+    - name: Authenticate Ngrok
       env:
         NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-      run: |
-        ngrok config add-authtoken "$NGROK_TOKEN"
-        # আগের কোনো সেশন সচল থাকলে তা স্বয়ংক্রিয়ভাবে বন্ধ করার কমান্ড
-        curl -X INVALIDATE -H "Authorization: Bearer $NGROK_TOKEN" https://api.ngrok.com/tunnels || true
+      run: ngrok config add-authtoken "$NGROK_TOKEN"
 
     - name: Start Android Cloud Phone
       run: |
