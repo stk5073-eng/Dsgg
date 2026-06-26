@@ -1,0 +1,50 @@
+name: Ultimate Cloud Phone
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Install Android Emulator
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y QEMU-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-31;default;x86_64"
+        echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+
+    - name: Install Ngrok & VNC Tool
+      run: |
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com/ buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt-get update && sudo apt-get install -y ngrok novnc websockify
+
+    - name: Authenticate Ngrok
+      run: ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: Start Android Cloud Phone
+      run: |
+        echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64"
+        $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-audio -no-boot-anim -gpu swiftshader_indirect &
+
+    - name: Connect to Screen
+      run: |
+        websockify --web /usr/share/novnc 6080 localhost:5900 &
+        ngrok http 6080 --log=stdout > /dev/null &
+        sleep 12
+        echo "============================================="
+        echo "👉 আপনার ক্লাউড ফোনের লিংকটি নিচে দেওয়া হলো:"
+        curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+        echo "============================================="
+        sleep 20000
+        
