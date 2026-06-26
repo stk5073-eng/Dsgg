@@ -1,11 +1,12 @@
-name: Ultimate Cloud Phone
+name: Android Cloud Phone
 
-on: 
+on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
@@ -16,39 +17,40 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Install Android Emulator
+    - name: Install Android Emulator & VNC Tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq
-        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-31;default;x86_64"
-        echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-
-    - name: Install Ngrok & VNC Tool
-      run: |
-        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com/ buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt-get update
-        sudo apt-get install -y ngrok novnc websockify tigervnc-standalone-server
-
-    - name: Authenticate Ngrok
-      env:
-        NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-      run: ngrok config add-authtoken "$NGROK_TOKEN"
+        sudo apt-get install -y x11vnc websockify novnc
+        # এখানে আপনার ক্লাউড ফোনের প্রয়োজনীয় অন্যান্য টুলস ইন্সটল করার কমান্ড থাকবে
 
     - name: Start Android Cloud Phone
       run: |
-        echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64" --force
-        $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        # আপনার অ্যান্ড্রোয়েড স্ক্রিন/সার্ভার স্টার্ট করার মূল কমান্ডটি এখানে দিন
+        # উদাহরণস্বরূপ (ব্যাকগ্রাউন্ডে সচল রাখার জন্য '&' ব্যবহার নিশ্চিত করুন):
+        echo "Starting Cloud Phone..." 
+        # (এখানে আপনার আসল অ্যান্ড্রোয়েড স্ক্রিপ্টটি বসবে)
+
+    - name: Wait for VNC Server to Boot
+      run: |
+        echo "VNC এবং ডিসপ্লে সার্ভার চালু হওয়ার জন্য ১৫ সেকেন্ড অপেক্ষা করা হচ্ছে..."
+        sleep 15
+
+    - name: Authenticate Ngrok
+      run: |
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.di/ngrok.list
+        sudo apt-get update && sudo apt-get install ngrok
+        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
     - name: Connect to Screen (Random Domain)
       run: |
+        # Websockify ব্যাকগ্রাউন্ডে চালু করা হচ্ছে
         websockify --web /usr/share/novnc 6080 localhost:5900 &
-        # এখানে কোন নির্দিষ্ট ডোমেইন বা এ্যান্ডপয়েন্ট ব্যবহার না করে র্যান্ডম হোস্ট দেওয়া হয়েছে
-        ngrok http 6080 --log=stdout > /dev/null &
-        sleep 20
-        echo "============================================="
-        echo "👉 আপনার ক্লাউড ফোনের নতুন লিংকটি নিচে দেওয়া হলো:"
-        curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-        echo "============================================="
-        sleep 20000
+        
+        echo "------------------------------------------------------------"
+        echo "👉 আপনার ক্লাউড ফোনের নতুন লিংকটি নিচে তৈরি হচ্ছে..."
+        echo "------------------------------------------------------------"
+        
+        # ডোমেন এরর এড়াতে প্রতিবার নতুন র্যান্ডম ডোমেনে টানেল চালু করা হচ্ছে
+        ngrok http 6080 --log=stdout
         
