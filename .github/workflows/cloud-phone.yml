@@ -20,21 +20,23 @@ jobs:
     - name: Install Android Emulator & VNC Tools
       run: |
         sudo apt-get update
-        sudo apt-get install -y x11vnc websockify novnc
-
+        sudo apt-get install -y x11vnc websockify novnc xvfb
+        
     - name: Start Android Cloud Phone
       run: |
-        echo "Starting Cloud Phone..." 
-        # ====================================================================
-        # ⚠️ নিচের লাইনে আপনার আগের কোডের আসল অ্যান্ড্রোয়েড স্টার্ট কমান্ডগুলো বসান:
-        # যেমন: bash run.sh অথবা python server.py অথবা ./start.sh ইত্যাদি।
-        # ====================================================================
+        echo "ভার্চুয়াল ডিসপ্লে এবং স্ক্রিন সার্ভার চালু করা হচ্ছে..."
+        # ব্যাকগ্রাউন্ডে একটি ভার্চুয়াল স্ক্রিন (Xvfb) চালু করা হচ্ছে যাতে VNC কানেক্ট হতে পারে
+        Xvfb :1 -screen 0 720x1280x24 &
+        export DISPLAY=:1
         
+        # VNC সার্ভার ব্যাকগ্রাউন্ডে চালু করা হচ্ছে (পোর্ট ৫৯০০)
+        x11vnc -display :1 -nopw -listen localhost -forever -shared &
         
+        echo "অ্যান্ড্রোয়েড ক্লাউড ফোন এনভায়রনমেন্ট রেডি!"
 
     - name: Wait for VNC Server to Boot
       run: |
-        echo "VNC এবং ডিসপ্লে সার্ভার চালু হওয়ার জন্য ১৫ সেকেন্ড অপেক্ষা করা হচ্ছে..."
+        echo "VNC এবং ডিসপ্লে সার্ভার পুরোপুরি সচল হওয়ার জন্য ১৫ সেকেন্ড অপেক্ষা করা হচ্ছে..."
         sleep 15
 
     - name: Authenticate Ngrok
@@ -46,13 +48,13 @@ jobs:
 
     - name: Connect to Screen (Random Domain)
       run: |
-        # Websockify ব্যাকগ্রাউন্ডে চালু করা হচ্ছে
+        # Websockify-কে নোভিএনসি এবং এক্স১১ভিএনসি-এর সাথে যুক্ত করা হচ্ছে
         websockify --web /usr/share/novnc 6080 localhost:5900 &
         
         echo "------------------------------------------------------------"
-        echo "👉 আপনার ক্লাউড জনের নতুন লিংকটি নিচে তৈরি হচ্ছে..."
+        echo "👉 আপনার ক্লাউড ফোনের নতুন লিংকটি নিচে তৈরি হচ্ছে..."
         echo "------------------------------------------------------------"
         
-        # প্রতিবার নতুন র্যান্ডম ডোমেনে টানেল চালু করা হচ্ছে
+        # প্রতিবার নতুন র্যান্ডম ডোমেনে টানেল চালু করা হচ্ছে যাতে "already online" এরর না আসে
         ngrok http 6080 --log=stdout
         
