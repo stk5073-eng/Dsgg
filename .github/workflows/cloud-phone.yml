@@ -40,13 +40,14 @@ jobs:
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64" --force
         $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
 
-    - name: Connect to Screen
+    - name: Connect to Screen (Random Domain)
       run: |
         websockify --web /usr/share/novnc 6080 localhost:5900 &
+        # এখানে কোন নির্দিষ্ট ডোমেইন বা এ্যান্ডপয়েন্ট ব্যবহার না করে র্যান্ডম হোস্ট দেওয়া হয়েছে
         ngrok http 6080 --log=stdout > /dev/null &
-        sleep 15
+        sleep 20
         echo "============================================="
-        echo "👉 আপনার ক্লাউড ফোনের লিংকটি নিচে দেওয়া হলো:"
+        echo "👉 আপনার ক্লাউড ফোনের নতুন লিংকটি নিচে দেওয়া হলো:"
         curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
         echo "============================================="
         sleep 20000
