@@ -1,4 +1,4 @@
-name: Ultimate Secure Cloud Phone
+name: Secure Gaming Cloud Phone
 
 on: 
   workflow_dispatch:
@@ -16,10 +16,10 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Install Android Emulator and VNC
+    - name: Install Android Emulator and Tunnel
       run: |
         sudo apt-get update
-        sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq novnc websockify tigervnc-standalone-server
+        sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq novnc websockify
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-31;default;x86_64"
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
@@ -34,21 +34,16 @@ jobs:
         NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
       run: ngrok config add-authtoken "$NGROK_TOKEN"
 
-    - name: Start Android Emulator (Safe Headless Mode)
+    - name: Start Android Emulator (No Crash Mode)
       run: |
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64" --force
-        $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect &
+        # সরাসরি পোর্টের মাধ্যমে ব্রাউজারে কানেক্ট করার জন্য -vnc :0 অপশন যোগ করা হয়েছে
+        $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -vnc :0 &
 
-    - name: Start VNC and Ngrok Tunnel
+    - name: Web Screen Connection
       run: |
-        # VNC এর জন্য একটি সিকিউর ফোল্ডার তৈরি করে পাসওয়ার্ড প্রম্পট বাইপাস করা হচ্ছে
-        mkdir -p ~/.vnc
-        echo "123456" | vncpasswd -f > ~/.vnc/passwd
-        chmod 600 ~/.vnc/passwd
-        
-        # পাসওয়ার্ড ফাইল সহ VNC সার্ভার রান করা হচ্ছে
-        vncserver :1 -geometry 1280x720 -depth 24 -rfbauth ~/.vnc/passwd
-        websockify --web /usr/share/novnc 6080 localhost:5901 &
+        # সরাসরি অ্যান্ড্রয়েডের ইন্টারনাল স্ক্রিন পোর্টটিকে (5900) ব্রাউজারের পোর্টে (6080) পাঠানো হচ্ছে
+        websockify --web /usr/share/novnc 6080 localhost:5900 &
         ngrok http 6080 --log=stdout > /dev/null &
         sleep 30
         echo "============================================="
