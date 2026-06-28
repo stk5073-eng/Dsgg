@@ -1,4 +1,4 @@
-name: Secure Cloud Phone for Gaming
+name: Ultimate Secure Cloud Phone
 
 on: 
   workflow_dispatch:
@@ -16,37 +16,39 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Install Android Emulator
+    - name: Install Android Emulator and VNC
       run: |
         sudo apt-get update
-        sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq
+        sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq novnc websockify tigervnc-standalone-server
         echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-31;default;x86_64"
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
-    - name: Install Ngrok & VNC Tool
+    - name: Install Ngrok
       run: |
         curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
         echo "deb https://ngrok-agent.s3.amazonaws.com/ buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt-get update
-        sudo apt-get install -y ngrok novnc websockify tigervnc-standalone-server
+        sudo apt-get update && sudo apt-get install -y ngrok
 
     - name: Authenticate Ngrok
       env:
         NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
       run: ngrok config add-authtoken "$NGROK_TOKEN"
 
-    - name: Start Secure Android Phone
+    - name: Start Android Emulator (Safe Headless Mode)
       run: |
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64" --force
-        $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+        # -no-window এবং -gpu swiftshader_indirect ব্যবহার করা হয়েছে যেন গিটহাবে ক্র্যাশ না করে
+        $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect &
 
-    - name: Connect to Screen (Random Domain)
+    - name: Start VNC and Ngrok Tunnel
       run: |
-        websockify --web /usr/share/novnc 6080 localhost:5900 &
+        # একটি কাস্টম এক্স-সার্ভার সেশন ব্যাকগ্রাউন্ডে অন করা হচ্ছে
+        vncserver :1 -geometry 1280x720 -depth 24
+        websockify --web /usr/share/novnc 6080 localhost:5901 &
         ngrok http 6080 --log=stdout > /dev/null &
-        sleep 25
+        sleep 30
         echo "============================================="
-        echo "👉 আপনার নিরাপদ ক্লাউড ফোনের লিংকটি নিচে দেওয়া হলো:"
+        echo "👉 আপনার ক্লাউড ফোনের নতুন লিংক নিচে দেওয়া হলো:"
         curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
         echo "============================================="
         sleep 20000
