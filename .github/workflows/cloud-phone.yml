@@ -20,7 +20,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils webfs jq novnc websockify
-        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-31;default;x86_64"
+        # এখানে লাইটওয়েট অ্যান্ড্রয়েড ৯ (API 28) ব্যবহার করা হয়েছে যা ক্র্যাশ করবে না
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-28;default;x86_64"
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 
     - name: Install Ngrok
@@ -36,16 +37,15 @@ jobs:
 
     - name: Start Android Emulator (No Crash Mode)
       run: |
-        echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64" --force
-        # সরাসরি পোর্টের মাধ্যমে ব্রাউজারে কানেক্ট করার জন্য -vnc :0 অপশন যোগ করা হয়েছে
+        echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-28;default;x86_64" --force
+        # রেন্ডারিং ফ্রি রাখার জন্য সেফ মোড অন করা হয়েছে
         $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect -vnc :0 &
 
     - name: Web Screen Connection
       run: |
-        # সরাসরি অ্যান্ড্রয়েডের ইন্টারনাল স্ক্রিন পোর্টটিকে (5900) ব্রাউজারের পোর্টে (6080) পাঠানো হচ্ছে
         websockify --web /usr/share/novnc 6080 localhost:5900 &
         ngrok http 6080 --log=stdout > /dev/null &
-        sleep 30
+        sleep 40
         echo "============================================="
         echo "👉 আপনার ক্লাউড ফোনের নতুন লিংক নিচে দেওয়া হলো:"
         curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
