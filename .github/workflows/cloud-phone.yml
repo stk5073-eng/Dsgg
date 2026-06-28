@@ -37,13 +37,17 @@ jobs:
     - name: Start Android Emulator (Safe Headless Mode)
       run: |
         echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-31;default;x86_64" --force
-        # -no-window এবং -gpu swiftshader_indirect ব্যবহার করা হয়েছে যেন গিটহাবে ক্র্যাশ না করে
         $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect &
 
     - name: Start VNC and Ngrok Tunnel
       run: |
-        # একটি কাস্টম এক্স-সার্ভার সেশন ব্যাকগ্রাউন্ডে অন করা হচ্ছে
-        vncserver :1 -geometry 1280x720 -depth 24
+        # VNC এর জন্য একটি সিকিউর ফোল্ডার তৈরি করে পাসওয়ার্ড প্রম্পট বাইপাস করা হচ্ছে
+        mkdir -p ~/.vnc
+        echo "123456" | vncpasswd -f > ~/.vnc/passwd
+        chmod 600 ~/.vnc/passwd
+        
+        # পাসওয়ার্ড ফাইল সহ VNC সার্ভার রান করা হচ্ছে
+        vncserver :1 -geometry 1280x720 -depth 24 -rfbauth ~/.vnc/passwd
         websockify --web /usr/share/novnc 6080 localhost:5901 &
         ngrok http 6080 --log=stdout > /dev/null &
         sleep 30
