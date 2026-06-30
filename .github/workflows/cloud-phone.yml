@@ -20,22 +20,12 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            jq \
-            xvfb \
-            x11vnc \
-            novnc \
-            websockify \
-            curl
-
-          curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | \
-            sudo gpg --dearmor -o /usr/share/keyrings/ngrok.gpg
-
-          echo "deb [signed-by=/usr/share/keyrings/ngrok.gpg] https://ngrok-agent.s3.amazonaws.com buster main" | \
-            sudo tee /etc/apt/sources.list.d/ngrok.list
-
-          sudo apt-get update
-          sudo apt-get install -y ngrok
+          sudo apt-get install -y jq xvfb x11vnc novnc websockify curl
+          
+          # Ngrok ইন্সটলেশন
+          curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo gpg --dearmor -o /usr/share/keyrings/ngrok.gpg
+          echo "deb [signed-by=/usr/share/keyrings/ngrok.gpg] https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt-get update && sudo apt-get install -y ngrok
 
       - name: Authenticate ngrok
         env:
@@ -43,34 +33,33 @@ jobs:
         run: |
           ngrok config add-authtoken "$NGROK_TOKEN"
 
-      - name: Run Android Emulator with Fixed Display
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 29
-          target: default
-          arch: x86_64
-          profile: Nexus 5X
-          force-avd-creation: true
-          # এখানে আমরা এমুলেটরকে সরাসরি ভার্চুয়াল ডিসপ্লেতে পাঠাচ্ছি
-          emulator-options: -no-audio -no-boot-anim -gpu swiftshader_indirect
-          disable-animations: true
-          script: |
-            # ১. একই এনভায়রনমেন্ট সেশনে ভার্চুয়াল ডিসপ্লে ও VNC স্টার্ট করা হচ্ছে যেন ডিসপ্লে মিস না হয়
-            Xvfb :0 -screen 0 1280x720x24 &
-            sleep 2
-            
-            export DISPLAY=:0
-            x11vnc -display :0 -nopw -forever -shared -rfbport 5900 &
-            websockify --web=/usr/share/novnc 6080 localhost:5900 &
-            ngrok http 6080 > /dev/null &
-            sleep 10
-            
-            # ২. সফলভাবে লিংক জেনারেট এবং স্ক্রিনে প্রিন্ট
-            echo "======================================"
-            echo "👉 আপনার ক্লাউড ফোনের লিংক নিচে দেওয়া হলো:"
-            curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-            echo "======================================"
-            
-            # ৩. সেশন ধরে রাখার জন্য স্লিপ
-            sleep 20000
-            
+      - name: Setup and Run Android Emulator with Display
+        run: |
+          # ১. অ্যান্ড্রয়েড এসডিকে থেকে লাইটওয়েট ইমেজ এবং এমুলেটর প্যাকেজ নিশ্চিত করা
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "emulator" "platform-tools" "system-images;android-28;default;x86_64"
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-28;default;x86_64" --force
+
+          # ২. ভার্চুয়াল ডিসপ্লে ব্যাকগ্রাউন্ডে স্টার্ট করা
+          Xvfb :0 -screen 0 1280x720x24 &
+          sleep 3
+          export DISPLAY=:0
+
+          # ৩. এমুলেটরকে সরাসরি এই ডিসপ্লে জোনে ব্যাকগ্রাউন্ডে রান করা
+          $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-audio -no-boot-anim -gpu swiftshader_indirect &
+          sleep 10
+
+          # ৪. VNC, Web-screen এবং Ngrok টানেল চালু করা
+          x11vnc -display :0 -nopw -forever -shared -rfbport 5900 &
+          websockify --web=/usr/share/novnc 6080 localhost:5900 &
+          ngrok http 6080 > /dev/null &
+          sleep 15
+
+          # ৫. ইউজার লিংক জেনারেট করা
+          echo "======================================"
+          echo "👉 আপনার ক্লাউড ফোনের লিংক নিচে দেওয়া হলো:"
+          curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+          echo "======================================"
+          
+          # সেশন চালু রাখার জন্য স্লিপ
+          sleep 20000
+          
