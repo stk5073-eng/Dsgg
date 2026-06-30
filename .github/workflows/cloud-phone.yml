@@ -43,16 +43,7 @@ jobs:
         run: |
           ngrok config add-authtoken "$NGROK_TOKEN"
 
-      - name: Start Virtual Display
-        run: |
-          Xvfb :0 -screen 0 1280x720x24 &
-          export DISPLAY=:0
-          x11vnc -display :0 -nopw -forever -shared -rfbport 5900 &
-          websockify --web=/usr/share/novnc 6080 localhost:5900 &
-          ngrok http 6080 > /dev/null &
-          sleep 10
-
-      - name: Run Android Emulator
+      - name: Run Android Emulator with Fixed Display
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -60,11 +51,26 @@ jobs:
           arch: x86_64
           profile: Nexus 5X
           force-avd-creation: true
+          # এখানে আমরা এমুলেটরকে সরাসরি ভার্চুয়াল ডিসপ্লেতে পাঠাচ্ছি
           emulator-options: -no-audio -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: |
+            # ১. একই এনভায়রনমেন্ট সেশনে ভার্চুয়াল ডিসপ্লে ও VNC স্টার্ট করা হচ্ছে যেন ডিসপ্লে মিস না হয়
+            Xvfb :0 -screen 0 1280x720x24 &
+            sleep 2
+            
+            export DISPLAY=:0
+            x11vnc -display :0 -nopw -forever -shared -rfbport 5900 &
+            websockify --web=/usr/share/novnc 6080 localhost:5900 &
+            ngrok http 6080 > /dev/null &
+            sleep 10
+            
+            # ২. সফলভাবে লিংক জেনারেট এবং স্ক্রিনে প্রিন্ট
             echo "======================================"
-            echo "Cloud Phone URL:"
+            echo "👉 আপনার ক্লাউড ফোনের লিংক নিচে দেওয়া হলো:"
             curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
             echo "======================================"
+            
+            # ৩. সেশন ধরে রাখার জন্য স্লিপ
             sleep 20000
+            
