@@ -1,4 +1,4 @@
-name: Ultimate Gaming Cloud Phone
+name: Ultimate Rooted Cloud Phone
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq xvfb x11vnc novnc websockify curl
           
-          # Ngrok ইন্সটলেশন
+          # Ngrok Setup
           curl -fsSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo gpg --dearmor -o /usr/share/keyrings/ngrok.gpg
           echo "deb [signed-by=/usr/share/keyrings/ngrok.gpg] https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
           sudo apt-get update && sudo apt-get install -y ngrok
@@ -33,30 +33,49 @@ jobs:
         run: |
           ngrok config add-authtoken "$NGROK_TOKEN"
 
-      - name: Setup and Run Android Emulator with Display
+      - name: Setup and Run Rooted Android Emulator
         run: |
-          # ১. অ্যান্ড্রয়েড এসডিকে থেকে লাইটওয়েট ইমেজ এবং এমুলেটর প্যাকেজ নিশ্চিত করা
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "emulator" "platform-tools" "system-images;android-28;default;x86_64"
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n CloudPhone -k "system-images;android-28;default;x86_64" --force
+          # ১. রুট পারমিশন সহজে হ্যান্ডেল করতে 'google_apis' ইমেজ ব্যবহার
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "emulator" "platform-tools" "system-images;android-28;google_apis;x86_64"
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n RootedCloudPhone -k "system-images;android-28;google_apis;x86_64" --force
 
-          # ২. ভার্চুয়াল ডিসপ্লে ব্যাকগ্রাউন্ডে স্টার্ট করা
+          # ২. ভার্চুয়াল ডিসপ্লে ব্যাকগ্রাউন্ডে ফ্রেশ করে স্টার্ট করা
           Xvfb :0 -screen 0 1280x720x24 &
-          sleep 3
+          sleep 5
           export DISPLAY=:0
 
-          # ৩. এমুলেটরকে সরাসরি এই ডিসপ্লে জোনে ব্যাকগ্রাউন্ডে রান করা
-          $ANDROID_HOME/emulator/emulator -avd CloudPhone -no-audio -no-boot-anim -gpu swiftshader_indirect &
-          sleep 10
+          # ৩. এমুলেটর রান করা (Writable System সহ যেন রুট অ্যাক্সেস সচল হয়)
+          $ANDROID_HOME/emulator/emulator -avd RootedCloudPhone -writable-system -no-audio -no-boot-anim -gpu swiftshader_indirect &
+          
+          echo "অ্যান্ড্রয়েড বুট হওয়ার জন্য অপেক্ষা করা হচ্ছে..."
+          $ANDROID_HOME/platform-tools/adb wait-for-device
+          sleep 20 # ডিসপ্লে ড্রাইভার লোড হওয়ার জন্য অতিরিক্ত সেফটি টাইম
+          
+          # ৪. এমুলেটরে রুট ফাইল রাইট পারমিশন দেওয়া
+          $ANDROID_HOME/platform-tools/adb root
+          sleep 2
+          $ANDROID_HOME/platform-tools/adb remount
+          sleep 2
+          
+          # ৫. রুট কন্ট্রোল করার জন্য Superuser APK ব্যাকগ্রাউন্ডে ইনস্টল
+          curl -L -o superuser.apk https://github.com/phhusson/Superuser/raw/master/superuser.apk
+          $ANDROID_HOME/platform-tools/adb install superuser.apk || true
 
-          # ৪. VNC, Web-screen এবং Ngrok টানেল চালু করা
+          # -------------------------------------------------------------
+          # 🔒 গেম সার্ভার থেকে রুট লুকানোর স্ক্রিপ্ট (Root Hide)
+          $ANDROID_HOME/platform-tools/adb shell "su 0 pm disable com.google.android.gms/.chimera.GmsIntentOperationService" || true
+          $ANDROID_HOME/platform-tools/adb shell "su 0 setenforce 0" || true
+          # -------------------------------------------------------------
+
+          # ৬. VNC, Web-screen এবং Ngrok টানেল চালু করা
           x11vnc -display :0 -nopw -forever -shared -rfbport 5900 &
           websockify --web=/usr/share/novnc 6080 localhost:5900 &
           ngrok http 6080 > /dev/null &
           sleep 15
 
-          # ৫. ইউজার লিংক জেনারেট করা
+          # ७. ইউজার লিংক জেনারেট করা
           echo "======================================"
-          echo "👉 আপনার ক্লাউড ফোনের লিংক নিচে দেওয়া হলো:"
+          echo "👉 রুট ও ফিক্সড ডিসপ্লে সহ ক্লাউড ফোনের লিংক:"
           curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
           echo "======================================"
           
