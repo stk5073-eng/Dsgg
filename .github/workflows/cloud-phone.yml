@@ -35,47 +35,52 @@ jobs:
 
       - name: Setup and Run Rooted Android Emulator
         run: |
-          # ১. রুট পারমিশন সহজে হ্যান্ডেল করতে 'google_apis' ইমেজ ব্যবহার
+          # ১. এভিডি পাথ ট্র্যাকিং ফিক্স করতে ডিরেক্টরি আগে থেকেই তৈরি করা
+          mkdir -p ~/.android/avd
+          
+          # ২. সিস্টেম ইমেজ ডাউনলোড
           echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "emulator" "platform-tools" "system-images;android-28;google_apis;x86_64"
+          
+          # ৩. সঠিক পাথে এভিডি তৈরি নিশ্চিত করা
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n RootedCloudPhone -k "system-images;android-28;google_apis;x86_64" --force
 
-          # ২. ভার্চুয়াল ডিসপ্লে ব্যাকগ্রাউন্ডে ফ্রেশ করে স্টার্ট করা
+          # ৪. ভার্চুয়াল ডিসপ্লে ব্যাকগ্রাউন্ডে রেডি করা যেন এমুলেটর প্রথম থেকেই ডিসপ্লে পায়
           Xvfb :0 -screen 0 1280x720x24 &
-          sleep 5
+          sleep 3
           export DISPLAY=:0
 
-          # ৩. এমুলেটর রান করা (Writable System সহ যেন রুট অ্যাক্সেস সচল হয়)
+          # ৫. এমুলেটর রান করা (Writable System ও সুনির্দিষ্ট পাথ সহ)
           $ANDROID_HOME/emulator/emulator -avd RootedCloudPhone -writable-system -no-audio -no-boot-anim -gpu swiftshader_indirect &
           
           echo "অ্যান্ড্রয়েড বুট হওয়ার জন্য অপেক্ষা করা হচ্ছে..."
           $ANDROID_HOME/platform-tools/adb wait-for-device
-          sleep 20 # ডিসপ্লে ড্রাইভার লোড হওয়ার জন্য অতিরিক্ত সেফটি টাইম
+          sleep 15
           
-          # ৪. এমুলেটরে রুট ফাইল রাইট পারমিশন দেওয়া
+          # ৬. এমুলেটরে রুট ফাইল রাইট পারমিশন দেওয়া
           $ANDROID_HOME/platform-tools/adb root
           sleep 2
           $ANDROID_HOME/platform-tools/adb remount
           sleep 2
           
-          # ৫. রুট কন্ট্রোল করার জন্য Superuser APK ব্যাকগ্রাউন্ডে ইনস্টল
+          # ৭. রুট কন্ট্রোল করার জন্য Superuser APK ইনস্টল
           curl -L -o superuser.apk https://github.com/phhusson/Superuser/raw/master/superuser.apk
           $ANDROID_HOME/platform-tools/adb install superuser.apk || true
 
           # -------------------------------------------------------------
-          # 🔒 গেম সার্ভার থেকে রুট লুকানোর স্ক্রিপ্ট (Root Hide)
+          # 🔒 গেম সার্ভার বা থার্ড-পার্টি অ্যাপ থেকে রুট হাইড করার স্ক্রিপ্ট
           $ANDROID_HOME/platform-tools/adb shell "su 0 pm disable com.google.android.gms/.chimera.GmsIntentOperationService" || true
           $ANDROID_HOME/platform-tools/adb shell "su 0 setenforce 0" || true
           # -------------------------------------------------------------
 
-          # ৬. VNC, Web-screen এবং Ngrok টানেল চালু করা
+          # ৮. VNC, Web-screen এবং Ngrok টানেল চালু করা
           x11vnc -display :0 -nopw -forever -shared -rfbport 5900 &
           websockify --web=/usr/share/novnc 6080 localhost:5900 &
           ngrok http 6080 > /dev/null &
-          sleep 15
+          sleep 10
 
-          # ७. ইউজার লিংক জেনারেট করা
+          # ৯. ইউজার লিংক জেনারেট করা
           echo "======================================"
-          echo "👉 রুট ও ফিক্সড ডিসপ্লে সহ ক্লাউড ফোনের লিংক:"
+          echo "👉 রুট ও ফিক্সড ডিরেক্টরি সহ ক্লাউড ফোনের লিংক:"
           curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
           echo "======================================"
           
